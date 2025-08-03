@@ -2,9 +2,11 @@
 	import RepoCard from '$lib/components/repo-card.svelte';
 	import type { Repo } from '$lib/types/repo';
 	import { getRandomRepo, getTotalCount } from '$lib/utils/github-utils';
+	import { githubConfig } from '$lib/configs/github';
 	import Icon from '@iconify/svelte';
 
 	let totalCount = $state(0);
+	let minStars = $state(githubConfig.defaultMinStars);
 	let randomRepo: Repo | null = $state(null);
 	let isLoading = $state(false);
 	let error = $state<string | null>(null);
@@ -12,7 +14,7 @@
 	export const handleClick = async () => {
 		isLoading = true;
 		error = null;
-		const { data, error: totalCountError } = await getTotalCount();
+		const { data, error: totalCountError } = await getTotalCount(minStars);
 		if (totalCountError) {
 			console.error('Error fetching total count:', totalCountError);
 			error = totalCountError;
@@ -29,7 +31,7 @@
 			}
 			const randomIndex = Math.floor(Math.random() * totalCount);
 
-			const { data, error: randomRepoError } = await getRandomRepo(randomIndex);
+			const { data, error: randomRepoError } = await getRandomRepo(randomIndex, minStars);
 			if (!data || randomRepoError) {
 				console.error('Error fetching random repo:', randomRepoError);
 				isLoading = false;
@@ -43,12 +45,22 @@
 	};
 </script>
 
-<div class="flex flex-col items-center justify-center">
+<div class="flex flex-col items-center justify-center gap-4">
 	{#if randomRepo}
 		<RepoCard repoData={randomRepo} />
 	{:else}
 		<div class="flex flex-col items-center justify-center gap-4">
 			<h1 class="mb-4 text-2xl font-bold">Find Random GitHub Repo</h1>
+
+			<div class="mb-4 flex flex-row items-center justify-start gap-2">
+				<label for="minStars">Minimum Stars</label>
+				<input
+					id="minStars"
+					bind:value={minStars}
+					type="number"
+					class="rounded-sm border border-accent px-2 py-1"
+				/>
+			</div>
 
 			<button
 				onclick={handleClick}

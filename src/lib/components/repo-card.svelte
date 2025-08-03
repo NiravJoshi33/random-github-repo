@@ -6,6 +6,19 @@
 	import RepoOwner from './repo-owner.svelte';
 
 	let { repoData }: { repoData: Repo } = $props();
+
+	const formatStarsCount = (count: number): string => {
+		if (count >= 1000) {
+			return `${(count / 1000).toFixed(1)}k`;
+		} else if (count >= 1000000) {
+			return `${(count / 1000000).toFixed(1)}M`;
+		} else if (count >= 1000000000) {
+			return `${(count / 1000000000).toFixed(1)}B`;
+		}
+
+		// For counts less than 1000, return the count as is
+		return count.toString();
+	};
 </script>
 
 <a
@@ -19,7 +32,7 @@
 		<div class="flex flex-row items-center justify-center gap-1 rounded-md p-2">
 			<Icon icon="lucide:star" />
 			<p class="text-sm text-gray-500">
-				{repoData.stargazers_count}
+				{formatStarsCount(repoData.stargazers_count)}
 			</p>
 		</div>
 	</div>

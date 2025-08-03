@@ -1,12 +1,12 @@
 import { githubConfig } from '$lib/configs/github';
 import type { Repo } from '$lib/types/repo';
 
-export const getTotalCount = async () => {
+export const getTotalCount = async (minStars: number) => {
 	if (!githubConfig.apiBaseURL) {
 		throw new Error('GitHub API base URL is not defined');
 	}
 
-	const url = `${githubConfig.apiBaseURL}?q=stars:>=0&per_page=1`;
+	const url = `${githubConfig.apiBaseURL}?q=stars:>=${minStars}&per_page=1`;
 	console.log('Fetching total count from:', url);
 
 	try {
@@ -34,12 +34,12 @@ export const getTotalCount = async () => {
 	}
 };
 
-export const getRandomRepo = async (page: number) => {
+export const getRandomRepo = async (page: number, minStars: number) => {
 	if (!githubConfig.apiBaseURL) {
 		throw new Error('GitHub API base URL is not defined');
 	}
 
-	const url = `${githubConfig.apiBaseURL}?q=stars:>=0&sort=stars&order=desc&page=${page}&per_page=1`;
+	const url = `${githubConfig.apiBaseURL}?q=stars:>=${minStars}&sort=stars&order=desc&page=${page}&per_page=1`;
 	console.log('Fetching random repo from:', url);
 
 	try {

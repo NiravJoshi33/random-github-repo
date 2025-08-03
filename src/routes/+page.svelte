@@ -4,12 +4,35 @@
 	import { getRandomRepo, getTotalCount } from '$lib/utils/github-utils';
 	import { githubConfig } from '$lib/configs/github';
 	import Icon from '@iconify/svelte';
+	import { getSavedReposFromLocalStorage, saveRepoToLocalStorage } from '$lib/utils/storage-utils';
 
 	let totalCount = $state(0);
 	let minStars = $state(githubConfig.defaultMinStars);
 	let randomRepo: Repo | null = $state(null);
 	let isLoading = $state(false);
+	let isSaveLoading = $state(false);
 	let error = $state<string | null>(null);
+	let savedRepos = $state(getSavedReposFromLocalStorage());
+
+	$effect(() => {
+		isSaveLoading = true;
+		saveRepoToLocalStorage(savedRepos);
+		isSaveLoading = false;
+	});
+
+	export const addRepo = () => {
+		if (!randomRepo) {
+			return;
+		}
+
+		// check if same repo already exists in savedRepos
+		const alreadySavedRepo = savedRepos.find((repo) => repo.id === randomRepo?.id);
+		if (alreadySavedRepo) {
+			return;
+		}
+
+		savedRepos.push(randomRepo);
+	};
 
 	export const handleClick = async () => {
 		isLoading = true;
@@ -47,7 +70,18 @@
 
 <div class="flex flex-col items-center justify-center gap-4">
 	{#if randomRepo}
-		<RepoCard repoData={randomRepo} />
+		<div class="flex flex-col gap-2">
+			<RepoCard repoData={randomRepo} />
+			<button
+				class="flex w-fit flex-row items-center justify-center gap-2 self-end"
+				onclick={addRepo}
+			>
+				<Icon
+					icon={`${isSaveLoading ? 'mdi:loading' : 'lucide:save'}`}
+					class={`${isLoading ? 'animate-spin' : ''}`}
+				/>
+			</button>
+		</div>
 	{:else}
 		<div class="flex flex-col items-center justify-center gap-4">
 			<h1 class="mb-4 text-2xl font-bold">Find Random GitHub Repo</h1>

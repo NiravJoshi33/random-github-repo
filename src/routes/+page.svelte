@@ -1,0 +1,68 @@
+<script lang="ts">
+	import RepoCard from '$lib/components/repo-card.svelte';
+	import type { Repo } from '$lib/types/repo';
+	import { getRandomRepo, getTotalCount } from '$lib/utils/github-utils';
+	import Icon from '@iconify/svelte';
+
+	let totalCount = $state(0);
+	let randomRepo: Repo | null = $state(null);
+	let isLoading = $state(false);
+	let error = $state<string | null>(null);
+
+	export const handleClick = async () => {
+		isLoading = true;
+		error = null;
+		const { data, error: totalCountError } = await getTotalCount();
+		if (totalCountError) {
+			console.error('Error fetching total count:', totalCountError);
+			error = totalCountError;
+			isLoading = false;
+			return;
+		}
+
+		totalCount = data;
+
+		if (totalCount > 0) {
+			if (totalCount > 1000) {
+				console.warn('Total count exceeds 1000, limiting to 1000 for random selection.');
+				totalCount = 1000;
+			}
+			const randomIndex = Math.floor(Math.random() * totalCount);
+
+			const { data, error: randomRepoError } = await getRandomRepo(randomIndex);
+			if (!data || randomRepoError) {
+				console.error('Error fetching random repo:', randomRepoError);
+				isLoading = false;
+				error = randomRepoError;
+				return;
+			}
+
+			randomRepo = data;
+			isLoading = false;
+		}
+	};
+</script>
+
+<div class="flex flex-col items-center justify-center">
+	{#if randomRepo}
+		<RepoCard repoData={randomRepo} />
+	{:else}
+		<div class="flex flex-col items-center justify-center gap-4">
+			<h1 class="mb-4 text-2xl font-bold">Find Random GitHub Repo</h1>
+
+			<button
+				onclick={handleClick}
+				class="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-white transition-colors duration-300 hover:bg-blue-600"
+			>
+				<Icon icon="mdi:loading" class={`${isLoading ? 'animate-spin' : 'hidden'}`} />
+				{isLoading ? 'Loading...' : 'Get Random Repo'}
+			</button>
+
+			{#if error}
+				<div class="rounded-md bg-red-200 px-2 py-1">
+					<p class="text-sm">{error}</p>
+				</div>
+			{/if}
+		</div>
+	{/if}
+</div>

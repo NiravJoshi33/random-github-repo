@@ -13,10 +13,15 @@
 	let isSaveLoading = $state(false);
 	let error = $state<string | null>(null);
 	let savedRepos = $state(getSavedReposFromLocalStorage());
+	let isRepoAlreadySaved = $state(false);
 
 	$effect(() => {
 		isSaveLoading = true;
 		saveRepoToLocalStorage(savedRepos);
+		const savedRepo = savedRepos.find((repo) => repo.id === randomRepo?.id);
+		if (savedRepo) {
+			isRepoAlreadySaved = true;
+		}
 		isSaveLoading = false;
 	});
 
@@ -75,6 +80,7 @@
 			<button
 				class="flex w-fit flex-row items-center justify-center gap-2 self-end"
 				onclick={addRepo}
+				disabled={isRepoAlreadySaved}
 			>
 				<Icon
 					icon={`${isSaveLoading ? 'mdi:loading' : 'lucide:save'}`}

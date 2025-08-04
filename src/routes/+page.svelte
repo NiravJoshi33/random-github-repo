@@ -77,16 +77,29 @@
 	{#if randomRepo}
 		<div class="flex flex-col gap-2">
 			<RepoCard repoData={randomRepo} />
-			<button
-				class="flex w-fit flex-row items-center justify-center gap-2 self-end"
-				onclick={addRepo}
-				disabled={isRepoAlreadySaved}
-			>
-				<Icon
-					icon={`${isSaveLoading ? 'mdi:loading' : 'lucide:save'}`}
-					class={`${isLoading ? 'animate-spin' : ''}`}
-				/>
-			</button>
+			<div class="flex flex-row items-center justify-center gap-2">
+				<button
+					class="flex w-fit flex-row items-center justify-center gap-2 self-end"
+					onclick={addRepo}
+					disabled={isRepoAlreadySaved}
+				>
+					<Icon
+						icon={`${isSaveLoading ? 'mdi:loading' : 'lucide:save'}`}
+						class={`${isLoading ? 'animate-spin' : ''}`}
+						width="24"
+						height="24"
+					/>
+				</button>
+				<!-- refresh page -->
+				<button
+					class="flex w-fit flex-row items-center justify-center gap-2 self-end"
+					onclick={() => {
+						window.location.reload();
+					}}
+				>
+					<Icon icon="lucide:refresh-cw" width="24" height="24" />
+				</button>
+			</div>
 		</div>
 	{:else}
 		<div class="flex flex-col items-center justify-center gap-4">

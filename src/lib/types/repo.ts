@@ -11,6 +11,12 @@ export interface Repo {
 	forks_count: number;
 	archived: boolean;
 	license: RepoLicense | null;
+	topics: string[];
+	created_at: string;
+	updated_at: string;
+	pushed_at: string;
+	open_issues_count: number;
+	watchers_count: number;
 }
 
 export interface RepoOwner {

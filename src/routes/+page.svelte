@@ -1,133 +1,180 @@
 <script lang="ts">
 	import RepoCard from '$lib/components/repo-card.svelte';
 	import type { Repo } from '$lib/types/repo';
-	import { getRandomRepo, getTotalCount } from '$lib/utils/github-utils';
+	import { getRandomRepo, getTotalCount, searchRepos } from '$lib/utils/github-utils';
 	import { githubConfig } from '$lib/configs/github';
 	import Icon from '@iconify/svelte';
-	import { getSavedReposFromLocalStorage, saveRepoToLocalStorage } from '$lib/utils/storage-utils';
+	import { resolve } from '$app/paths';
 
-	let totalCount = $state(0);
+	let searchQuery = $state('');
 	let minStars = $state(githubConfig.defaultMinStars);
 	let randomRepo: Repo | null = $state(null);
-	let isLoading = $state(false);
-	let isSaveLoading = $state(false);
-	let error = $state<string | null>(null);
-	let savedRepos = $state(getSavedReposFromLocalStorage());
-	let isRepoAlreadySaved = $state(false);
+	let isRandomLoading = $state(false);
+	let randomError = $state<string | null>(null);
 
+	// Trending preview
+	let trendingRepos = $state<Repo[]>([]);
+	let isTrendingLoading = $state(true);
+
+	// Load trending on mount
 	$effect(() => {
-		isSaveLoading = true;
-		saveRepoToLocalStorage(savedRepos);
-		const savedRepo = savedRepos.find((repo) => repo.id === randomRepo?.id);
-		if (savedRepo) {
-			isRepoAlreadySaved = true;
-		}
-		isSaveLoading = false;
+		loadTrending();
 	});
 
-	export const addRepo = () => {
-		if (!randomRepo) {
-			return;
+	const loadTrending = async () => {
+		isTrendingLoading = true;
+		const result = await searchRepos({
+			minStars: 10,
+			sort: 'stars',
+			order: 'desc',
+			dateRange: 'week',
+			perPage: 6
+		});
+		if (!result.error) {
+			trendingRepos = result.repos;
 		}
-
-		// check if same repo already exists in savedRepos
-		const alreadySavedRepo = savedRepos.find((repo) => repo.id === randomRepo?.id);
-		if (alreadySavedRepo) {
-			return;
-		}
-
-		savedRepos.push(randomRepo);
+		isTrendingLoading = false;
 	};
 
-	export const handleClick = async () => {
-		isLoading = true;
-		error = null;
-		const { data, error: totalCountError } = await getTotalCount(minStars);
-		if (totalCountError) {
-			console.error('Error fetching total count:', totalCountError);
-			error = totalCountError;
-			isLoading = false;
+	const handleSearch = (e: Event) => {
+		e.preventDefault();
+		if (searchQuery.trim()) {
+			window.location.href = resolve(`/search`) + `?q=${encodeURIComponent(searchQuery.trim())}`;
+		}
+	};
+
+	const handleRandomRepo = async () => {
+		isRandomLoading = true;
+		randomError = null;
+		randomRepo = null;
+
+		const { data: count, error: countError } = await getTotalCount(minStars);
+		if (countError || !count) {
+			randomError = countError || 'Failed to get repo count';
+			isRandomLoading = false;
 			return;
 		}
 
-		totalCount = data;
+		const total = Math.min(count, 1000);
+		const randomIndex = Math.floor(Math.random() * total);
 
-		if (totalCount > 0) {
-			if (totalCount > 1000) {
-				console.warn('Total count exceeds 1000, limiting to 1000 for random selection.');
-				totalCount = 1000;
-			}
-			const randomIndex = Math.floor(Math.random() * totalCount);
-
-			const { data, error: randomRepoError } = await getRandomRepo(randomIndex, minStars);
-			if (!data || randomRepoError) {
-				console.error('Error fetching random repo:', randomRepoError);
-				isLoading = false;
-				error = randomRepoError;
-				return;
-			}
-
+		const { data, error } = await getRandomRepo(randomIndex, minStars);
+		if (error || !data) {
+			randomError = error || 'Failed to fetch repo';
+		} else {
 			randomRepo = data;
-			isLoading = false;
 		}
+		isRandomLoading = false;
 	};
 </script>
 
-<div class="flex flex-col items-center justify-center gap-4">
-	{#if randomRepo}
-		<div class="flex flex-col gap-2">
-			<RepoCard repoData={randomRepo} />
-			<div class="flex flex-row items-center justify-center gap-2">
-				<button
-					class="flex w-fit flex-row items-center justify-center gap-2 self-end"
-					onclick={addRepo}
-					disabled={isRepoAlreadySaved}
-				>
-					<Icon
-						icon={`${isSaveLoading ? 'mdi:loading' : 'lucide:save'}`}
-						class={`${isLoading ? 'animate-spin' : ''}`}
-						width="24"
-						height="24"
-					/>
-				</button>
-				<!-- refresh page -->
-				<button
-					class="flex w-fit flex-row items-center justify-center gap-2 self-end"
-					onclick={() => {
-						window.location.reload();
-					}}
-				>
-					<Icon icon="lucide:refresh-cw" width="24" height="24" />
-				</button>
-			</div>
-		</div>
-	{:else}
-		<div class="flex flex-col items-center justify-center gap-4">
-			<h1 class="mb-4 text-2xl font-bold">Find Random GitHub Repo</h1>
+<div class="flex w-full max-w-6xl flex-col gap-10 px-4 pt-24 pb-8">
+	<!-- Hero -->
+	<div class="flex flex-col items-center gap-4 text-center">
+		<h1 class="text-4xl font-bold">
+			<span class="text-accent">Discover</span> GitHub Repos Worth Sharing
+		</h1>
+		<p class="max-w-lg text-gray-500">
+			Find trending, random, and keyword-matching repos to share on X and LinkedIn.
+		</p>
 
-			<div class="mb-4 flex flex-row items-center justify-start gap-2">
-				<label for="minStars">Minimum Stars</label>
+		<!-- Search bar -->
+		<form onsubmit={handleSearch} class="mt-2 flex w-full max-w-xl flex-row gap-2">
+			<input
+				type="text"
+				bind:value={searchQuery}
+				placeholder="Search repos... (e.g. 'AI agents', 'rust cli tools')"
+				class="flex-1 rounded-lg border border-accent/30 bg-background px-4 py-3 text-foreground outline-none focus:border-accent"
+			/>
+			<button
+				type="submit"
+				class="flex items-center gap-2 rounded-lg bg-accent px-5 py-3 text-white hover:bg-accent/80"
+			>
+				<Icon icon="lucide:search" width="18" height="18" />
+				Search
+			</button>
+		</form>
+	</div>
+
+	<!-- Topic chips -->
+	<div class="flex flex-col gap-3">
+		<h2 class="text-lg font-semibold">Browse by Topic</h2>
+		<div class="flex flex-wrap gap-2">
+			{#each githubConfig.popularTopics as topic (topic.label)}
+				<a
+					href={resolve('/topics') + `?t=${encodeURIComponent(topic.label)}`}
+					class="flex items-center gap-1.5 rounded-full border border-accent/20 px-4 py-2 text-sm transition-colors hover:border-accent hover:bg-accent/10"
+				>
+					<Icon icon={topic.icon} width="16" height="16" />
+					{topic.label}
+				</a>
+			{/each}
+		</div>
+	</div>
+
+	<!-- Random repo section -->
+	<div class="flex flex-col gap-3 rounded-2xl border border-accent/10 p-6">
+		<div class="flex items-center justify-between">
+			<h2 class="text-lg font-semibold">Feeling Lucky?</h2>
+			<div class="flex items-center gap-2">
+				<label for="homeMinStars" class="text-sm text-gray-500">Min Stars</label>
 				<input
-					id="minStars"
-					bind:value={minStars}
+					id="homeMinStars"
 					type="number"
-					class="rounded-sm border border-accent px-2 py-1"
+					bind:value={minStars}
+					class="w-24 rounded-lg border border-accent/30 bg-background px-3 py-1.5 text-sm outline-none focus:border-accent"
 				/>
 			</div>
-
-			<button
-				onclick={handleClick}
-				class="flex items-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-white transition-colors duration-300 hover:bg-blue-600"
-			>
-				<Icon icon="mdi:loading" class={`${isLoading ? 'animate-spin' : 'hidden'}`} />
-				{isLoading ? 'Loading...' : 'Get Random Repo'}
-			</button>
-
-			{#if error}
-				<div class="rounded-md bg-red-200 px-2 py-1">
-					<p class="text-sm">{error}</p>
-				</div>
-			{/if}
 		</div>
-	{/if}
+
+		<button
+			onclick={handleRandomRepo}
+			disabled={isRandomLoading}
+			class="flex w-fit items-center gap-2 rounded-lg bg-accent px-5 py-2.5 text-white hover:bg-accent/80"
+		>
+			{#if isRandomLoading}
+				<Icon icon="mdi:loading" class="animate-spin" width="18" height="18" />
+				Finding...
+			{:else}
+				<Icon icon="lucide:shuffle" width="18" height="18" />
+				Get Random Repo
+			{/if}
+		</button>
+
+		{#if randomError}
+			<div class="rounded-lg bg-red-100 px-4 py-2 text-sm text-red-700">{randomError}</div>
+		{/if}
+
+		{#if randomRepo}
+			<div class="mt-2 max-w-md">
+				<RepoCard repoData={randomRepo} />
+			</div>
+		{/if}
+	</div>
+
+	<!-- Trending preview -->
+	<div class="flex flex-col gap-3">
+		<div class="flex items-center justify-between">
+			<h2 class="text-lg font-semibold">Trending This Week</h2>
+			<a
+				href={resolve('/trending')}
+				class="flex items-center gap-1 text-sm text-accent hover:underline"
+			>
+				See all
+				<Icon icon="lucide:arrow-right" width="14" height="14" />
+			</a>
+		</div>
+
+		{#if isTrendingLoading}
+			<div class="flex items-center justify-center py-8">
+				<Icon icon="mdi:loading" class="animate-spin text-accent" width="32" height="32" />
+			</div>
+		{:else if trendingRepos.length > 0}
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+				{#each trendingRepos as repo (repo.id)}
+					<RepoCard repoData={repo} />
+				{/each}
+			</div>
+		{/if}
+	</div>
 </div>
